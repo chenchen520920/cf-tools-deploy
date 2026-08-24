@@ -1,0 +1,22 @@
+name: deploy-cf-tools
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '部署组件'
+        required: true
+        default: 'all'
+        type: choice
+        options: [all, gateway, burn, node2]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 部署到 Cloudflare Pages
+        env:
+          CF_API: ${{ secrets.CF_API }}
+        run: python scripts/deploy.py "${{ inputs.target }}"
