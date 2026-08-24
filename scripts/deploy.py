@@ -31,27 +31,6 @@ def wrangler_pages_deploy(token, comp_dir, project_name):
             print("  wrangler:", ln.strip()[:160])
     return r.returncode == 0
 
-def run_component(token, comp):
-    print("=" * 50)
-    print("组件:", comp)
-    if comp == "gateway":
-        name = create_project(token, "ai-gw")
-        if not name: return False
-        # env 变量用 REST 设（secret_text 不明文回显）；AI 绑定由 wrangler.toml 负责
-        cfg = {
-            "env_vars": {"API_KEY": {"type": "secret_text",
-                                     "value": derive("ai-gw-k2", token, 24)}},
-            "compatibility_date": "2025-08-01",
-        }
-        if not patch_project(token, name, cfg): return False
-        if not wrangler_pages_deploy(token, os.path.join(ROOT, "gateway"), name):
-            print("  wrangler 部署失败")
-            return False
-        sub = subdomain(token, name) or (name + ".pages.dev")
-        print("组件 gateway 部署成功 -> https://%s" % sub)
-        verify_gateway(sub, derive("ai-gw-k2", token, 24))
-        return True
-
 def verify_gateway(sub, key):
     """部署后从 runner 侧做端到端验证（runner 在美国，直连 pages.dev 无阻碍）"""
     import urllib.request, time
@@ -80,6 +59,27 @@ def verify_gateway(sub, key):
             return
         except Exception as e:
             print("  [verify] 第%d轮失败: %s" % (attempt + 1, str(e)[:120]))
+
+def run_component(token, comp):
+    print("=" * 50)
+    print("组件:", comp)
+    if comp == "gateway":
+        name = create_project(token, "ai-gw")
+        if not name: return False
+        # env 变量用 REST 设（secret_text 不明文回显）；AI 绑定由 wrangler.toml 负责
+        cfg = {
+            "env_vars": {"API_KEY": {"type": "secret_text",
+                                     "value": derive("ai-gw-k2", token, 24)}},
+            "compatibility_date": "2025-08-01",
+        }
+        if not patch_project(token, name, cfg): return False
+        if not wrangler_pages_deploy(token, os.path.join(ROOT, "gateway"), name):
+            print("  wrangler 部署失败")
+            return False
+        sub = subdomain(token, name) or (name + ".pages.dev")
+        print("组件 gateway 部署成功 -> https://%s" % sub)
+        verify_gateway(sub, derive("ai-gw-k2", token, 24))
+        return True
     elif comp == "burn":
         ns_kv = create_kv(token, "burn-kv")
         if not ns_kv: return False
