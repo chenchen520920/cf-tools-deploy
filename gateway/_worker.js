@@ -1,6 +1,8 @@
-// AI 极简网关：/translate + /image，Workers AI 内部绑定，访问 key 鉴权
+// AI 极简网关：/translate + /image + /whisper + /tts，Workers AI 内部绑定，访问 key 鉴权
 const MODEL_TRANSLATE = '@cf/qwen/qwen3-30b-a3b-fp8';
 const MODEL_IMAGE = '@cf/black-forest-labs/flux-1-schnell';
+const MODEL_ASR = '@cf/openai/whisper-large-v3-turbo';
+const MODEL_TTS = '@cf/myshell-ai/melotts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +28,8 @@ const HOME = `<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta n
 <body><h1>AI 极简网关</h1>
 <p><b>POST /translate</b> — 头 <code>x-api-key</code>，JSON 体 <code>{"text":"要翻译的内容","to":"English"}</code></p>
 <p><b>POST /image</b> — 头 <code>x-api-key</code>，JSON 体 <code>{"prompt":"a cute cat"}</code>，直接返回 PNG</p>
+<p><b>POST /whisper</b> — 头 <code>x-api-key</code>，body 直接发音频二进制（mp3/wav/m4a），返回 <code>{"text":"..."}</code></p>
+<p><b>POST /tts</b> — 头 <code>x-api-key</code>，JSON 体 <code>{"text":"Hello world","lang":"en"}</code>，直接返回 MP3</p>
 <p><b>GET /health</b> — 存活检查（无需 key）</p>
 </body></html>`;
 
@@ -60,6 +64,31 @@ export default {
         const r = await env.AI.run(MODEL_IMAGE, { prompt, steps: Math.min(Math.max(+steps || 4, 1), 8) });
         const bin = Uint8Array.from(atob(r.image), c => c.charCodeAt(0));
         return new Response(bin, { headers: { 'Content-Type': 'image/png', ...CORS } });
+      } catch (e) {
+        return json({ error: String(e && e.message || e) }, 500);
+      }
+    }
+
+    if (url.pathname === '/whisper' && request.method === 'POST') {
+      try {
+        const buf = await request.arrayBuffer();
+        if (!buf.byteLength) return json({ error: 'empty audio body' }, 400);
+        if (buf.byteLength > 15 * 1024 * 1024) return json({ error: 'audio too large (>15MB)' }, 400);
+        const r = await env.AI.run(MODEL_ASR, { audio: [...new Uint8Array(buf)] });
+        return json({ text: (r.text || '').trim(), vtt: r.vtt || undefined, model: MODEL_ASR });
+      } catch (e) {
+        return json({ error: String(e && e.message || e) }, 500);
+      }
+    }
+
+    if (url.pathname === '/tts' && request.method === 'POST') {
+      try {
+        const { text, lang = 'en' } = await request.json();
+        if (!text) return json({ error: 'missing text' }, 400);
+        if (text.length > 5000) return json({ error: 'text too long (>5000)' }, 400);
+        const r = await env.AI.run(MODEL_TTS, { prompt: text, lang });
+        const bin = Uint8Array.from(atob(r.audio), c => c.charCodeAt(0));
+        return new Response(bin, { headers: { 'Content-Type': 'audio/mpeg', ...CORS } });
       } catch (e) {
         return json({ error: String(e && e.message || e) }, 500);
       }
