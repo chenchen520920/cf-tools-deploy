@@ -1,5 +1,5 @@
 // AI 极简网关：/translate + /image，Workers AI 内部绑定，访问 key 鉴权
-const MODEL_TRANSLATE = '@cf/zai-org/glm-4.7-flash';
+const MODEL_TRANSLATE = '@cf/qwen/qwen3-30b-a3b-fp8';
 const MODEL_IMAGE = '@cf/black-forest-labs/flux-1-schnell';
 
 const CORS = {
