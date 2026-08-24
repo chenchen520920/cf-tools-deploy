@@ -48,15 +48,28 @@ def verify_gateway(sub, key):
             # 1. 翻译
             st, b = post("/translate", {"text": "不锈钢扳手，适用于摩托车维修", "to": "English"})
             print("  [verify] /translate:", st, b.decode()[:160].replace("\n", " "))
-            # 2. TTS
+            # 2. TTS（melotts 当前可能 3043 故障，带/不带 lang 各试一次）
+            audio = None
+            for payload in ({"text": "This is a gateway self test.", "lang": "en"},
+                            {"text": "This is a gateway self test."}):
+                try:
+                    st, audio = post("/tts", payload)
+                    print("  [verify] /tts:", st, len(audio), "bytes (payload=%s)" % list(payload.keys()))
+                    break
+                except urllib.error.HTTPError as he:
+                    print("  [verify] /tts HTTP", he.code, "body:", he.read().decode()[:150].replace("\n", " "))
+            # 3. Whisper 独立测（合成 1 秒正弦波 WAV，验证管线通畅即可）
+            import math, struct
+            sr = 16000
+            samples = b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / sr))) for i in range(sr))
+            wav = (b"RIFF" + struct.pack("<I", 36 + len(samples)) + b"WAVEfmt " +
+                   struct.pack("<IHHIIHH", 16, 1, 1, sr, sr * 2, 2, 16) + b"data" +
+                   struct.pack("<I", len(samples)) + samples)
             try:
-                st, audio = post("/tts", {"text": "This is a gateway self test.", "lang": "en"})
-                print("  [verify] /tts:", st, len(audio), "bytes")
-                # 3. Whisper 闭环（听写 TTS 音频）
-                st, b = post("/whisper", raw=audio, ctype="audio/mpeg")
+                st, b = post("/whisper", raw=wav, ctype="audio/wav")
                 print("  [verify] /whisper:", st, b.decode()[:200].replace("\n", " "))
             except urllib.error.HTTPError as he:
-                print("  [verify] /tts|whisper HTTP", he.code, "body:", he.read().decode()[:250].replace("\n", " "))
+                print("  [verify] /whisper HTTP", he.code, "body:", he.read().decode()[:200].replace("\n", " "))
             # 4. 生图
             try:
                 st, img = post("/image", {"prompt": "a blue ceramic mug, product photo"})
