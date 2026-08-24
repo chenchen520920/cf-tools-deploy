@@ -38,7 +38,8 @@ def verify_gateway(sub, key):
     def post(path, body=None, raw=None, ctype="application/json"):
         data = raw if raw is not None else json.dumps(body).encode()
         r = urllib.request.Request(base + path, data=data, method="POST",
-            headers={"Content-Type": ctype, "x-api-key": key})
+            headers={"Content-Type": ctype, "x-api-key": key,
+                     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) curl/8.0"})
         with urllib.request.urlopen(r, timeout=120) as resp:
             return resp.status, resp.read()
     for attempt in range(5):
