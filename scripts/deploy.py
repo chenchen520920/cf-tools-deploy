@@ -33,7 +33,7 @@ def wrangler_pages_deploy(token, comp_dir, project_name):
 
 def verify_gateway(sub, key):
     """部署后从 runner 侧做端到端验证（runner 在美国，直连 pages.dev 无阻碍）"""
-    import urllib.request, time
+    import urllib.request, urllib.error, time
     base = "https://" + sub
     def post(path, body=None, raw=None, ctype="application/json"):
         data = raw if raw is not None else json.dumps(body).encode()
@@ -49,14 +49,20 @@ def verify_gateway(sub, key):
             st, b = post("/translate", {"text": "不锈钢扳手，适用于摩托车维修", "to": "English"})
             print("  [verify] /translate:", st, b.decode()[:160].replace("\n", " "))
             # 2. TTS
-            st, audio = post("/tts", {"text": "This is a gateway self test.", "lang": "en"})
-            print("  [verify] /tts:", st, len(audio), "bytes")
-            # 3. Whisper 闭环（听写 TTS 音频）
-            st, b = post("/whisper", raw=audio, ctype="audio/mpeg")
-            print("  [verify] /whisper:", st, b.decode()[:200].replace("\n", " "))
+            try:
+                st, audio = post("/tts", {"text": "This is a gateway self test.", "lang": "en"})
+                print("  [verify] /tts:", st, len(audio), "bytes")
+                # 3. Whisper 闭环（听写 TTS 音频）
+                st, b = post("/whisper", raw=audio, ctype="audio/mpeg")
+                print("  [verify] /whisper:", st, b.decode()[:200].replace("\n", " "))
+            except urllib.error.HTTPError as he:
+                print("  [verify] /tts|whisper HTTP", he.code, "body:", he.read().decode()[:250].replace("\n", " "))
             # 4. 生图
-            st, img = post("/image", {"prompt": "a blue ceramic mug, product photo"})
-            print("  [verify] /image:", st, len(img), "bytes")
+            try:
+                st, img = post("/image", {"prompt": "a blue ceramic mug, product photo"})
+                print("  [verify] /image:", st, len(img), "bytes")
+            except urllib.error.HTTPError as he:
+                print("  [verify] /image HTTP", he.code, "body:", he.read().decode()[:200].replace("\n", " "))
             return
         except Exception as e:
             print("  [verify] 第%d轮失败: %s" % (attempt + 1, str(e)[:120]))
