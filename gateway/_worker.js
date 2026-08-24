@@ -74,7 +74,13 @@ export default {
         const buf = await request.arrayBuffer();
         if (!buf.byteLength) return json({ error: 'empty audio body' }, 400);
         if (buf.byteLength > 15 * 1024 * 1024) return json({ error: 'audio too large (>15MB)' }, 400);
-        const r = await env.AI.run(MODEL_ASR, { audio: [...new Uint8Array(buf)] });
+        // whisper-large-v3-turbo 要 base64 字符串（与老款 whisper 的字节数组不同）
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 8192) {
+          bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        }
+        const r = await env.AI.run(MODEL_ASR, { audio: btoa(bin) });
         return json({ text: (r.text || '').trim(), vtt: r.vtt || undefined, model: MODEL_ASR });
       } catch (e) {
         return json({ error: String(e && e.message || e) }, 500);
