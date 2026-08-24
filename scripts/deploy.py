@@ -22,9 +22,9 @@ def wrangler_pages_deploy(token, comp_dir, project_name):
     env["CLOUDFLARE_API_TOKEN"] = token
     env["CLOUDFLARE_ACCOUNT_ID"] = ACCOUNT_ID
     r = subprocess.run(
-        ["npx", "--yes", "wrangler@latest", "pages", "deploy", comp_dir,
+        ["npx", "--yes", "wrangler@latest", "pages", "deploy", ".",
          "--project-name", project_name, "--branch", "main"],
-        env=env, capture_output=True, text=True, timeout=600)
+        env=env, capture_output=True, text=True, timeout=600, cwd=comp_dir)
     out = (r.stdout or "") + (r.stderr or "")
     for ln in out.splitlines():
         if any(s in ln for s in ("✨", "Success", "pages.dev", "Error", "error", "✘", "ERROR")):
